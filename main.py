@@ -49,7 +49,8 @@ if __name__ == "__main__":
     camera = cv2.VideoCapture(0)
 
     # region of interest (ROI) coordinates
-    top, right, bottom, left = 10, 350, 225, 590
+    top, right, bottom, left = 0, 0, 700, 700
+    #top, right, bottom, left = 10, 350, 225, 590
 
     # initialize num of frames
     num_frames = 0
@@ -92,11 +93,16 @@ if __name__ == "__main__":
                 # segmented region
                 (thresholded, segmented) = hand
 
+                #Morphology operations
+                kernel = np.ones((7,7), np.uint8)
+                thresholded = cv2.morphologyEx(thresholded, cv2.MORPH_CLOSE, kernel)
+
                 # draw the segmented region and display the frame
                 cv2.drawContours(clone, [segmented + (right, top)], -1, (0, 0, 255))
                 cv2.imshow("Thesholded", thresholded)
 
         # draw the segmented hand
+        cv2.putText(clone, str(num_frames), (0,25), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2)
         cv2.rectangle(clone, (left, top), (right, bottom), (0,255,0), 2)
 
         # increment the number of frames
