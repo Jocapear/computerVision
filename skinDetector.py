@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import numpy as np
 import cv2
 
@@ -5,7 +7,7 @@ import cv2
 def detect_skin(image):
     HSV_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
     YCbCr_image = cv2.cvtColor(image, cv2.COLOR_BGR2YCR_CB)
-    binary_mask_image = HSV_image
+
     lower_HSV_values = np.array([0, 40, 0], dtype="uint8")
     upper_HSV_values = np.array([25, 255, 255], dtype="uint8")
 
