@@ -11,15 +11,17 @@ def enhance_image(image):
     contrast = contrast.enhance(3)
     return np.array(contrast)
 
+
 def adjust_gamma(image, gamma=1.0):
-	# build a lookup table mapping the pixel values [0, 255] to
-	# their adjusted gamma values
-	invGamma = 1.0 / gamma
-	table = np.array([((i / 255.0) ** invGamma) * 255
-		for i in np.arange(0, 256)]).astype("uint8")
- 
-	# apply gamma correction using the lookup table
-	return cv2.LUT(image, table)
+    # build a lookup table mapping the pixel values [0, 255] to
+    # their adjusted gamma values
+    invGamma = 1.0 / gamma
+    table = np.array([((i / 255.0) ** invGamma) * 255
+                      for i in np.arange(0, 256)]).astype("uint8")
+
+    # apply gamma correction using the lookup table
+    return cv2.LUT(image, table)
+
 
 def detect_skin(image):
     HSV_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
@@ -39,11 +41,12 @@ def detect_skin(image):
 
     binary_mask_image = cv2.add(mask_HSV, mask_YCbCr)
     cv2.imshow("original_binary_image", binary_mask_image)
-    binary_mask_image = cv2.GaussianBlur(binary_mask_image, (11,11), 0)
-    _, binary_mask_image = cv2.threshold(binary_mask_image, 128, 255, cv2.THRESH_BINARY )
+    binary_mask_image = cv2.GaussianBlur(binary_mask_image, (11, 11), 0)
+    _, binary_mask_image = cv2.threshold(
+        binary_mask_image, 128, 255, cv2.THRESH_BINARY)
     cv2.imshow("binary_image", binary_mask_image)
 
-    kernel = np.ones((3,3), np.uint8)
+    kernel = np.ones((3, 3), np.uint8)
     image_foreground = cv2.erode(
         binary_mask_image, kernel, iterations=1)  # remove noise
     cv2.imshow("erosion", image_foreground)
@@ -74,7 +77,7 @@ if __name__ == "__main__":
         frame = cv2.flip(frame, 1)
         cv2.imshow("initial", frame)
 
-        blur = cv2.GaussianBlur(frame, (3,3), 0)
+        blur = cv2.GaussianBlur(frame, (3, 3), 0)
         cv2.imshow("blur", blur)
 
         enhanced = adjust_gamma(blur, gamma=2)
