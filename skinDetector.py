@@ -38,10 +38,12 @@ def detect_skin(image):
         HSV_image, lower_HSV_values, upper_HSV_values)
 
     binary_mask_image = cv2.add(mask_HSV, mask_YCbCr)
+    cv2.imshow("original_binary_image", binary_mask_image)
     binary_mask_image = cv2.GaussianBlur(binary_mask_image, (11,11), 0)
+    _, binary_mask_image = cv2.threshold(binary_mask_image, 128, 255, cv2.THRESH_BINARY )
     cv2.imshow("binary_image", binary_mask_image)
 
-    kernel = np.ones((7,7), np.uint8)
+    kernel = np.ones((3,3), np.uint8)
     image_foreground = cv2.erode(
         binary_mask_image, kernel, iterations=1)  # remove noise
     cv2.imshow("erosion", image_foreground)
