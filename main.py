@@ -93,7 +93,7 @@ if __name__ == "__main__":
                 # segmented region
                 (thresholded, segmented) = hand
 
-                #Morphology operations
+                #Morphologycal operations
                 kernel = np.ones((7,7), np.uint8)
                 thresholded = cv2.morphologyEx(thresholded, cv2.MORPH_CLOSE, kernel)
 

@@ -21,7 +21,7 @@ while True:
     #erosion = cv2.erode(dilation, kernel)
 
     closing = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
-    cv2.imshow("closing", closing)
+    cv2.imshow("closing ", closing)
 
     # observe the keypress by the user
     keypress = cv2.waitKey(1) & 0xFF
