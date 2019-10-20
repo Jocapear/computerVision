@@ -2,7 +2,13 @@
 
 import numpy as np
 import cv2
+from PIL import Image, ImageEnhance
 
+def enhance_image(image):
+    pil_im = Image.fromarray(img)
+    contrast = ImageEnhance.Contrast(pil_im)
+    contrast = contrast.enhance(3)
+    return np.array(contrast)
 
 def detect_skin(image):
     HSV_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
