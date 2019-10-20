@@ -8,9 +8,18 @@ from PIL import Image, ImageEnhance
 def enhance_image(image):
     pil_im = Image.fromarray(image)
     contrast = ImageEnhance.Contrast(pil_im)
-    contrast = contrast.enhance(1)
+    contrast = contrast.enhance(3)
     return np.array(contrast)
 
+def adjust_gamma(image, gamma=1.0):
+	# build a lookup table mapping the pixel values [0, 255] to
+	# their adjusted gamma values
+	invGamma = 1.0 / gamma
+	table = np.array([((i / 255.0) ** invGamma) * 255
+		for i in np.arange(0, 256)]).astype("uint8")
+ 
+	# apply gamma correction using the lookup table
+	return cv2.LUT(image, table)
 
 def detect_skin(image):
     HSV_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
@@ -29,11 +38,16 @@ def detect_skin(image):
         HSV_image, lower_HSV_values, upper_HSV_values)
 
     binary_mask_image = cv2.add(mask_HSV, mask_YCbCr)
+    binary_mask_image = cv2.GaussianBlur(binary_mask_image, (11,11), 0)
+    cv2.imshow("binary_image", binary_mask_image)
+
+    kernel = np.ones((7,7), np.uint8)
     image_foreground = cv2.erode(
-        binary_mask_image, None, iterations=3)  # remove noise
+        binary_mask_image, kernel, iterations=1)  # remove noise
+    cv2.imshow("erosion", image_foreground)
     # The background region is reduced a little because of the dilate operation
     dilated_binary_image = cv2.dilate(
-        binary_mask_image, None, iterations=3)
+        binary_mask_image, kernel, iterations=3)
     _, image_background = cv2.threshold(
         dilated_binary_image, 1, 128, cv2.THRESH_BINARY)  # set all background regions to 128
 
@@ -57,8 +71,14 @@ if __name__ == "__main__":
         ret, frame = camera.read()  # BGR
         frame = cv2.flip(frame, 1)
         cv2.imshow("initial", frame)
-        frame = enhance_image(frame)
-        cv2.imshow("enhanced", frame)
+
+        blur = cv2.GaussianBlur(frame, (3,3), 0)
+        cv2.imshow("blur", blur)
+
+        enhanced = adjust_gamma(blur, gamma=2)
+        cv2.imshow("enhanced", enhanced)
+
+        frame = enhanced
         result = detect_skin(frame)
         # show img
         cv2.imshow("result", result)
