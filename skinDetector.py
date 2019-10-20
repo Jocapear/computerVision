@@ -4,11 +4,13 @@ import numpy as np
 import cv2
 from PIL import Image, ImageEnhance
 
+
 def enhance_image(image):
-    pil_im = Image.fromarray(img)
+    pil_im = Image.fromarray(image)
     contrast = ImageEnhance.Contrast(pil_im)
-    contrast = contrast.enhance(3)
+    contrast = contrast.enhance(1)
     return np.array(contrast)
+
 
 def detect_skin(image):
     HSV_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
@@ -53,6 +55,10 @@ if __name__ == "__main__":
     camera = cv2.VideoCapture(0)
     while True:
         ret, frame = camera.read()  # BGR
+        frame = cv2.flip(frame, 1)
+        cv2.imshow("initial", frame)
+        frame = enhance_image(frame)
+        cv2.imshow("enhanced", frame)
         result = detect_skin(frame)
         # show img
         cv2.imshow("result", result)
