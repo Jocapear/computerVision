@@ -1,5 +1,7 @@
 import numpy as np
 import cv2
+
+
 def detect_skin(image):
     HSV_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
     YCbCr_image = cv2.cvtColor(image, cv2.COLOR_BGR2YCR_CB)
@@ -37,17 +39,17 @@ def detect_skin(image):
         m, 0, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
     return cv2.bitwise_and(image, image, mask=image_mask)
 
+
 if __name__ == "__main__":
     # get the reference to the webcam
     camera = cv2.VideoCapture(0)
     while True:
-        ret, frame = camera.read() #BGR
+        ret, frame = camera.read()  # BGR
         result = detect_skin(frame)
-        #show img
+        # show img
         cv2.imshow("result", result)
         # observe the keypress by the user
         keypress = cv2.waitKey(1) & 0xFF
         # if the user pressed "q", then stop looping
         if keypress == ord("q"):
             break
-
