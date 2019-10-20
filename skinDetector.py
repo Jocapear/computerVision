@@ -26,6 +26,7 @@ def adjust_gamma(image, gamma=1.0):
 def detect_skin(image):
     HSV_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
     YCbCr_image = cv2.cvtColor(image, cv2.COLOR_BGR2YCR_CB)
+    RGB_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
     lower_HSV_values = np.array([0, 40, 0], dtype="uint8")
     upper_HSV_values = np.array([25, 255, 255], dtype="uint8")
@@ -33,13 +34,19 @@ def detect_skin(image):
     lower_YCbCr_values = np.array((0, 138, 67), dtype="uint8")
     upper_YCbCr_values = np.array((255, 173, 133), dtype="uint8")
 
+    lower_RGB_values = np.array((95, 40, 20), dtype="uint8")
+    upper_RGB_values = np.array((255, 255, 255), dtype="uint8")
+
     # A binary mask is returned. White pixels (255) represent pixels that fall into the upper/lower.
     mask_YCbCr = cv2.inRange(
         YCbCr_image, lower_YCbCr_values, upper_YCbCr_values)
     mask_HSV = cv2.inRange(
         HSV_image, lower_HSV_values, upper_HSV_values)
+    mask_RGB = cv2.inRange(
+        RGB_image, lower_RGB_values, upper_RGB_values)
 
     binary_mask_image = cv2.add(mask_HSV, mask_YCbCr)
+    binary_mask_image = cv2.bitwise_and(binary_mask_image, binary_mask_image, mask=mask_RGB)
     cv2.imshow("original_binary_image", binary_mask_image)
     binary_mask_image = cv2.GaussianBlur(binary_mask_image, (11, 11), 0)
     _, binary_mask_image = cv2.threshold(
