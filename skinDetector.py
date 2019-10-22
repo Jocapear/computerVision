@@ -3,12 +3,13 @@
 import numpy as np
 import cv2
 from PIL import Image, ImageEnhance
+import sys
 
 
 def enhance_image(image):
     pil_im = Image.fromarray(image)
     contrast = ImageEnhance.Contrast(pil_im)
-    contrast = contrast.enhance(3)
+    contrast = contrast.enhance(1/4)
     return np.array(contrast)
 
 
@@ -95,33 +96,42 @@ def foreground_mask(bg, image, threshold=25):
 
 def processFrame(frame):
     frame = cv2.flip(frame, 1)
-    # frame = cv2.GaussianBlur(frame, (3, 3), 3)
-    # frame = adjust_gamma(frame, gamma=2)
+    frame = cv2.GaussianBlur(frame, (3, 3), 3)
+    # frame = adjust_gamma(frame, gamma=1/4)
+    # frame = enhance_image(frame)
     return frame
 
 
 if __name__ == "__main__":
-    # get the reference to the webcam
-    camera = cv2.VideoCapture(0)
-    _, frame = camera.read()
-    frame = processFrame(frame)
-    background = frame.copy().astype("float")
-    for _ in range(30):
+    fileimg = None
+    if len(sys.argv) >= 2:
+        fileimg = cv2.imread(sys.argv[1], cv2.IMREAD_COLOR)
+    else:
+        # get the reference to the webcam
+        camera = cv2.VideoCapture(0)
         _, frame = camera.read()
         frame = processFrame(frame)
-        # compute weighted average, accumulate it and update the background
-        cv2.accumulateWeighted(frame, background, 0.5)
+        background = frame.copy().astype("float")
+        for _ in range(30):
+            _, frame = camera.read()
+            frame = processFrame(frame)
+            # compute weighted average, accumulate it and update the background
+            cv2.accumulateWeighted(frame, background, 0.5)
     while True:
-        ret, frame = camera.read()  # BGR
+        if fileimg is not None:
+            frame = fileimg
+        else:
+            ret, frame = camera.read()  # BGR
         # frame = cv2.flip(frame, 1)
         cv2.imshow("initial", frame)
         frame = processFrame(frame)
-        foreground = foreground_mask(background, frame)
 
         result = detect_skin(frame)
         cv2.imshow("result", result)
 
-        result = cv2.bitwise_and(result, result, mask=foreground)
+        if fileimg is None:
+            foreground = foreground_mask(background, frame)
+            result = cv2.bitwise_and(result, result, mask=foreground)
 
         # show img
         cv2.imshow("result foreground   ", result)
