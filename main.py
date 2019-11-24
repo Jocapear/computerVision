@@ -38,6 +38,64 @@ def segment(image, threshold=25):
         segmented = max(cnts, key=cv2.contourArea)
         return (thresholded, segmented)
 
+#---------------------------------------------
+# To detect skin colors in the image
+#---------------------------------------------
+def detect_skin(image):
+    HSV_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+    YCbCr_image = cv2.cvtColor(image, cv2.COLOR_BGR2YCR_CB)
+    RGB_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+    lower_HSV_values = np.array([0, 40, 0], dtype="uint8")
+    upper_HSV_values = np.array([25, 105, 255], dtype="uint8")
+
+    lower_YCbCr_values = np.array((0, 138, 67), dtype="uint8")
+    upper_YCbCr_values = np.array((255, 173, 133), dtype="uint8")
+
+    lower_RGB_values = np.array((95, 40, 20), dtype="uint8")
+    upper_RGB_values = np.array((255, 255, 255), dtype="uint8")
+
+    # A binary mask is returned. White pixels (255) represent pixels that fall into the upper/lower.
+    mask_YCbCr = cv2.inRange(
+        YCbCr_image, lower_YCbCr_values, upper_YCbCr_values)
+    mask_HSV = cv2.inRange(
+        HSV_image, lower_HSV_values, upper_HSV_values)
+    mask_RGB = cv2.inRange(
+        RGB_image, lower_RGB_values, upper_RGB_values)
+
+    # binary_mask_image = cv2.add(cv2.add(mask_HSV, mask_YCbCr), mask_RGB)
+
+    binary_mask_image = cv2.add(mask_HSV, mask_YCbCr)
+    # binary_mask_image = cv2.bitwise_and(
+    #     binary_mask_image, binary_mask_image, mask=mask_RGB)
+    cv2.imshow("original_binary_image", binary_mask_image)
+    binary_mask_image = cv2.GaussianBlur(binary_mask_image, (11, 11), 0)
+    _, binary_mask_image = cv2.threshold(
+        binary_mask_image, 128, 255, cv2.THRESH_BINARY)
+    cv2.imshow("binary_image", binary_mask_image)
+
+    kernel = np.ones((3, 3), np.uint8)
+    image_foreground = cv2.erode(
+        binary_mask_image, kernel, iterations=3)  # remove noise
+    # The background region is reduced a little because of the dilate operation
+    dilated_binary_image = cv2.dilate(
+        binary_mask_image, kernel, iterations=3)
+    _, image_background = cv2.threshold(
+        dilated_binary_image, 1, 128, cv2.THRESH_BINARY)  # set all background regions to 128
+
+    # add both foreground and backgroud, forming markers. The markers are "seeds" of the future image regions.
+    image_marker = cv2.add(image_foreground, image_background)
+    image_marker32 = np.int32(image_marker)  # convert to 32SC1 format
+
+    cv2.watershed(image, image_marker32)
+    m = cv2.convertScaleAbs(image_marker32)  # convert back to uint8
+
+    # bitwise of the mask with the input image
+    _, image_mask = cv2.threshold(
+        m, 0, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+    return image_mask
+    return cv2.bitwise_and(image, image, mask=image_mask)
+
 #-----------------
 # MAIN FUNCTION
 #-----------------
@@ -96,6 +154,55 @@ if __name__ == "__main__":
                 #Morphologycal operations
                 kernel = np.ones((7,7), np.uint8)
                 thresholded = cv2.morphologyEx(thresholded, cv2.MORPH_CLOSE, kernel)
+
+                #Detect skin
+                skin_mask = detect_skin(clone)
+                thresholded = cv2.bitwise_and(thresholded, thresholded, mask=skin_mask)
+
+                # Find contours
+                _, contours, _ = cv2.findContours(thresholded, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+                contours.sort(key=cv2.contourArea)
+                contours.reverse()
+                contours = contours[:3]
+                hull_list = []
+
+                # Find the convex hull object for each contour
+                for i in range(len(contours)):
+                    #if defects is not None:
+                    hull = cv2.convexHull(contours[i])
+                    hull_list.append(hull)
+
+                    moments = cv2.moments(contours[i])
+                    cx = 0
+                    cy = 0
+                    if moments['m00']!=0:
+                        cx = int(moments['m10']/moments['m00']) # cx = M10/M00
+                        cy = int(moments['m01']/moments['m00']) # cy = M01/M00
+                    centr=(cx,cy)
+                    cv2.circle(clone,centr,5,[0,0,255],2)       
+                    cv2.drawContours(thresholded,[contours[i]],0,(0,255,0),2) 
+                    cv2.drawContours(thresholded,[hull],0,(0,0,255),2)
+
+                    cnt = cv2.approxPolyDP(contours[i],0.01*cv2.arcLength(contours[i],True),True)
+                    hull = cv2.convexHull(cnt,returnPoints = False)
+                    defects = cv2.convexityDefects(cnt,hull)
+                    if defects is not None:
+                        for i in range(defects.shape[0]):
+                            s,e,f,d = defects[i,0]
+                            start = tuple(cnt[s][0])
+                            end = tuple(cnt[e][0])
+                            far = tuple(cnt[f][0])
+                            cv2.pointPolygonTest(cnt, centr, True)
+                            cv2.line(clone,start,end,[0,255,0],2)
+                            cv2.circle(clone,far,5,[0,0,255],-1)
+
+                # Draw contours + hull results
+                drawing = np.zeros((thresholded.shape[0], thresholded.shape[1], 3), dtype=np.uint8)
+                for i in range(len(contours)):
+                    color = (0, 255, 255)
+                    cv2.drawContours(drawing, contours, i, color)
+                    cv2.drawContours(drawing, hull_list, i, color)
+                cv2.imshow("Drawing", drawing)
 
                 # draw the segmented region and display the frame
                 cv2.drawContours(clone, [segmented + (right, top)], -1, (0, 0, 255))
