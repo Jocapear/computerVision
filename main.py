@@ -1,11 +1,14 @@
 import numpy as np
 import imutils
 import cv2
+import face_recognition
 
 bg = None
-#--------------------------------------------------
+# --------------------------------------------------
 # To find the running average over the background
-#--------------------------------------------------
+# --------------------------------------------------
+
+
 def run_avg(image, aWeight):
     global bg
     # initialize the background
@@ -16,9 +19,11 @@ def run_avg(image, aWeight):
     # compute weighted average, accumulate it and update the background
     cv2.accumulateWeighted(image, bg, aWeight)
 
-#---------------------------------------------
+# ---------------------------------------------
 # To segment the region of hand in the image
-#---------------------------------------------
+# ---------------------------------------------
+
+
 def segment(image, threshold=25):
     global bg
     # find the absolute difference between background and current frame
@@ -28,7 +33,8 @@ def segment(image, threshold=25):
     thresholded = cv2.threshold(diff, threshold, 255, cv2.THRESH_BINARY)[1]
 
     # get the contours in the thresholded image
-    (_, cnts, _) = cv2.findContours(thresholded.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    (cnts, _) = cv2.findContours(thresholded.copy(),
+                                 cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     # return None, if no contours detected
     if len(cnts) == 0:
@@ -38,9 +44,11 @@ def segment(image, threshold=25):
         segmented = max(cnts, key=cv2.contourArea)
         return (thresholded, segmented)
 
-#---------------------------------------------
+# ---------------------------------------------
 # To detect skin colors in the image
-#---------------------------------------------
+# ---------------------------------------------
+
+
 def detect_skin(image):
     HSV_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
     YCbCr_image = cv2.cvtColor(image, cv2.COLOR_BGR2YCR_CB)
@@ -96,9 +104,10 @@ def detect_skin(image):
     return image_mask
     return cv2.bitwise_and(image, image, mask=image_mask)
 
-#-----------------
+
+# -----------------
 # MAIN FUNCTION
-#-----------------
+# -----------------
 if __name__ == "__main__":
     # initialize weight for running average
     aWeight = 0.5
@@ -124,11 +133,23 @@ if __name__ == "__main__":
         # flip the frame so that it is not the mirror view
         frame = cv2.flip(frame, 1)
 
-        # clone the frame
-        clone = frame.copy()
-
         # get the height and width of the frame
         (height, width) = frame.shape[:2]
+
+        rgb_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
+        rgb_frame = cv2.cvtColor(rgb_frame, cv2.COLOR_BGR2RGB)
+        face_locations = face_recognition.face_locations(rgb_frame)
+        for (ftop, fright, fbottom, fleft) in face_locations:
+            frame = cv2.rectangle(
+                frame,
+                (4 * fleft, 4 * ftop),
+                (4 * fright, 4 * fbottom),
+                (0, 0, 0),
+                -1
+            )
+
+        # clone the frame
+        clone = frame.copy()
 
         # get the ROI
         roi = frame[top:bottom, right:left]
@@ -151,16 +172,19 @@ if __name__ == "__main__":
                 # segmented region
                 (thresholded, segmented) = hand
 
-                #Morphologycal operations
-                kernel = np.ones((7,7), np.uint8)
-                thresholded = cv2.morphologyEx(thresholded, cv2.MORPH_CLOSE, kernel)
+                # Morphologycal operations
+                kernel = np.ones((7, 7), np.uint8)
+                thresholded = cv2.morphologyEx(
+                    thresholded, cv2.MORPH_CLOSE, kernel)
 
-                #Detect skin
+                # Detect skin
                 skin_mask = detect_skin(clone)
-                thresholded = cv2.bitwise_and(thresholded, thresholded, mask=skin_mask)
+                thresholded = cv2.bitwise_and(
+                    thresholded, thresholded, mask=skin_mask)
 
                 # Find contours
-                _, contours, _ = cv2.findContours(thresholded, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+                contours, _ = cv2.findContours(
+                    thresholded, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
                 contours.sort(key=cv2.contourArea)
                 contours.reverse()
                 contours = contours[:3]
@@ -168,36 +192,39 @@ if __name__ == "__main__":
 
                 # Find the convex hull object for each contour
                 for i in range(len(contours)):
-                    #if defects is not None:
+                    # if defects is not None:
                     hull = cv2.convexHull(contours[i])
                     hull_list.append(hull)
 
                     moments = cv2.moments(contours[i])
                     cx = 0
                     cy = 0
-                    if moments['m00']!=0:
-                        cx = int(moments['m10']/moments['m00']) # cx = M10/M00
-                        cy = int(moments['m01']/moments['m00']) # cy = M01/M00
-                    centr=(cx,cy)
-                    cv2.circle(clone,centr,5,[0,0,255],2)       
-                    cv2.drawContours(thresholded,[contours[i]],0,(0,255,0),2) 
-                    cv2.drawContours(thresholded,[hull],0,(0,0,255),2)
+                    if moments['m00'] != 0:
+                        cx = int(moments['m10']/moments['m00'])  # cx = M10/M00
+                        cy = int(moments['m01']/moments['m00'])  # cy = M01/M00
+                    centr = (cx, cy)
+                    cv2.circle(clone, centr, 5, [0, 0, 255], 2)
+                    cv2.drawContours(
+                        thresholded, [contours[i]], 0, (0, 255, 0), 2)
+                    cv2.drawContours(thresholded, [hull], 0, (0, 0, 255), 2)
 
-                    cnt = cv2.approxPolyDP(contours[i],0.01*cv2.arcLength(contours[i],True),True)
-                    hull = cv2.convexHull(cnt,returnPoints = False)
-                    defects = cv2.convexityDefects(cnt,hull)
+                    cnt = cv2.approxPolyDP(
+                        contours[i], 0.01*cv2.arcLength(contours[i], True), True)
+                    hull = cv2.convexHull(cnt, returnPoints=False)
+                    defects = cv2.convexityDefects(cnt, hull)
                     if defects is not None:
                         for i in range(defects.shape[0]):
-                            s,e,f,d = defects[i,0]
+                            s, e, f, d = defects[i, 0]
                             start = tuple(cnt[s][0])
                             end = tuple(cnt[e][0])
                             far = tuple(cnt[f][0])
                             cv2.pointPolygonTest(cnt, centr, True)
-                            cv2.line(clone,start,end,[0,255,0],2)
-                            cv2.circle(clone,far,5,[0,0,255],-1)
+                            cv2.line(clone, start, end, [0, 255, 0], 2)
+                            cv2.circle(clone, far, 5, [0, 0, 255], -1)
 
                 # Draw contours + hull results
-                drawing = np.zeros((thresholded.shape[0], thresholded.shape[1], 3), dtype=np.uint8)
+                drawing = np.zeros(
+                    (thresholded.shape[0], thresholded.shape[1], 3), dtype=np.uint8)
                 for i in range(len(contours)):
                     color = (0, 255, 255)
                     cv2.drawContours(drawing, contours, i, color)
@@ -205,12 +232,13 @@ if __name__ == "__main__":
                 cv2.imshow("Drawing", drawing)
 
                 # draw the segmented region and display the frame
-                cv2.drawContours(clone, [segmented + (right, top)], -1, (0, 0, 255))
+                cv2.drawContours(
+                    clone, [segmented + (right, top)], -1, (0, 0, 255))
                 cv2.imshow("Thesholded", thresholded)
 
         # draw the segmented hand
-        cv2.putText(clone, str(num_frames), (0,25), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2)
-        cv2.rectangle(clone, (left, top), (right, bottom), (0,255,0), 2)
+        cv2.putText(clone, str(num_frames), (0, 25),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
         # increment the number of frames
         num_frames += 1
