@@ -2,8 +2,10 @@ import numpy as np
 import imutils
 import cv2
 import face_recognition
+import pyautogui
 
 bg = None
+screen_w, screen_h = pyautogui.size()
 # --------------------------------------------------
 # To find the running average over the background
 # --------------------------------------------------
@@ -33,7 +35,7 @@ def segment(image, threshold=15):
     thresholded = cv2.threshold(diff, threshold, 255, cv2.THRESH_BINARY)[1]
 
     # get the contours in the thresholded image
-    (cnts, _) = cv2.findContours(thresholded.copy(),
+    (_,cnts, _) = cv2.findContours(thresholded.copy(),
                                  cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     # return None, if no contours detected
@@ -127,6 +129,10 @@ if __name__ == "__main__":
 
     # keep looping, until interrupted
     while(True):
+        mouse_x, mouse_y = pyautogui.position()
+        positionStr = 'X: ' + str(mouse_x).rjust(4) + ' Y: ' + str(mouse_y).rjust(4)
+        #print(positionStr, end='')
+        #print('\b' * len(positionStr), end='', flush=True)
         # get the current frame
         (grabbed, frame) = camera.read()
 
@@ -185,11 +191,11 @@ if __name__ == "__main__":
                 thresholded = cv2.bitwise_and(thresholded, thresholded, mask=skin_mask)
 
                 # Find contours
-                contours, _ = cv2.findContours(
+                _,contours, _ = cv2.findContours(
                     thresholded, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
                 contours.sort(key=cv2.contourArea)
                 contours.reverse()
-                contours = contours[:2]
+                contours = contours[:1]
                 hull_list = []
 
                 # Find the convex hull object for each contour
@@ -205,6 +211,12 @@ if __name__ == "__main__":
                         cx = int(moments['m10']/moments['m00'])  # cx = M10/M00
                         cy = int(moments['m01']/moments['m00'])  # cy = M01/M00
                     centr = (cx, cy)
+
+                    #Move mouse to center position
+                    position_mouse_x = min(max((cx/width)*screen_w,1), screen_w-1)
+                    position_mouse_y = min(max((cy/height)*screen_h, 1), screen_h-1)
+                    pyautogui.moveTo(position_mouse_x, position_mouse_y)
+
                     cv2.circle(clone, centr, 5, [0, 0, 255], 2)
                     cv2.drawContours(
                         thresholded, [contours[i]], 0, (0, 255, 0), 2)
@@ -215,6 +227,9 @@ if __name__ == "__main__":
                     hull = cv2.convexHull(cnt, returnPoints=False)
                     defects = cv2.convexityDefects(cnt, hull)
                     if defects is not None:
+                        #Click when defects number is low
+                        if defects.shape[0] < 4:
+                            pyautogui.click()
                         for i in range(defects.shape[0]):
                             s, e, f, d = defects[i, 0]
                             start = tuple(cnt[s][0])
@@ -222,7 +237,7 @@ if __name__ == "__main__":
                             far = tuple(cnt[f][0])
                             cv2.pointPolygonTest(cnt, centr, True)
                             cv2.line(clone, start, end, [0, 255, 0], 2)
-                            cv2.circle(clone, far, 5, [0, 0, 255], -1)
+                            cv2.circle(clone, far, 5, [255, 0, 255], -1)
 
                 # Draw contours + hull results
                 drawing = np.zeros(
