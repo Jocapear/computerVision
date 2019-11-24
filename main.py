@@ -24,7 +24,7 @@ def run_avg(image, aWeight):
 # ---------------------------------------------
 
 
-def segment(image, threshold=25):
+def segment(image, threshold=15):
     global bg
     # find the absolute difference between background and current frame
     diff = cv2.absdiff(bg.astype("uint8"), image)
@@ -81,13 +81,15 @@ def detect_skin(image):
     _, binary_mask_image = cv2.threshold(
         binary_mask_image, 128, 255, cv2.THRESH_BINARY)
     cv2.imshow("binary_image", binary_mask_image)
-
+    return binary_mask_image
+    '''
     kernel = np.ones((3, 3), np.uint8)
+    kernel2 = np.ones((7, 7), np.uint8)
     image_foreground = cv2.erode(
         binary_mask_image, kernel, iterations=3)  # remove noise
     # The background region is reduced a little because of the dilate operation
     dilated_binary_image = cv2.dilate(
-        binary_mask_image, kernel, iterations=3)
+        binary_mask_image, kernel2, iterations=3)
     _, image_background = cv2.threshold(
         dilated_binary_image, 1, 128, cv2.THRESH_BINARY)  # set all background regions to 128
 
@@ -103,7 +105,7 @@ def detect_skin(image):
         m, 0, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
     return image_mask
     return cv2.bitwise_and(image, image, mask=image_mask)
-
+    '''
 
 # -----------------
 # MAIN FUNCTION
@@ -114,6 +116,7 @@ if __name__ == "__main__":
 
     # get the reference to the webcam
     camera = cv2.VideoCapture(0)
+    #camera = cv2.VideoCapture('http://192.168.1.96:8080/video')
 
     # region of interest (ROI) coordinates
     top, right, bottom, left = 0, 0, 700, 700
@@ -136,14 +139,14 @@ if __name__ == "__main__":
         # get the height and width of the frame
         (height, width) = frame.shape[:2]
 
-        rgb_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
+        rgb_frame = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5)
         rgb_frame = cv2.cvtColor(rgb_frame, cv2.COLOR_BGR2RGB)
         face_locations = face_recognition.face_locations(rgb_frame)
         for (ftop, fright, fbottom, fleft) in face_locations:
             frame = cv2.rectangle(
                 frame,
-                (4 * fleft, 4 * ftop),
-                (4 * fright, 4 * fbottom),
+                (2 * fleft, 2 * ftop),
+                (2 * fright, 2 * fbottom),
                 (0, 0, 0),
                 -1
             )
@@ -175,19 +178,18 @@ if __name__ == "__main__":
                 # Morphologycal operations
                 kernel = np.ones((7, 7), np.uint8)
                 thresholded = cv2.morphologyEx(
-                    thresholded, cv2.MORPH_CLOSE, kernel)
+                    thresholded,cv2.MORPH_CLOSE, kernel)
 
                 # Detect skin
                 skin_mask = detect_skin(clone)
-                thresholded = cv2.bitwise_and(
-                    thresholded, thresholded, mask=skin_mask)
+                thresholded = cv2.bitwise_and(thresholded, thresholded, mask=skin_mask)
 
                 # Find contours
                 contours, _ = cv2.findContours(
                     thresholded, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
                 contours.sort(key=cv2.contourArea)
                 contours.reverse()
-                contours = contours[:3]
+                contours = contours[:2]
                 hull_list = []
 
                 # Find the convex hull object for each contour
