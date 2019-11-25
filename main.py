@@ -3,6 +3,7 @@ import imutils
 import cv2
 import face_recognition
 import pyautogui
+import math
 
 bg = None
 screen_w, screen_h = pyautogui.size()
@@ -111,6 +112,30 @@ def detect_skin(image):
     '''
 
 
+def calculateFingers(res,drawing):  # -> finished bool, cnt: finger count
+    #  convexity defect
+    hull = cv2.convexHull(res, returnPoints=False)
+    if len(hull) > 3:
+        defects = cv2.convexityDefects(res, hull)
+        if defects is not None:  # avoid crashing.   (BUG not found)
+
+            cnt = 0
+            for i in range(defects.shape[0]):  # calculate the angle
+                s, e, f, d = defects[i][0]
+                start = tuple(res[s][0])
+                end = tuple(res[e][0])
+                far = tuple(res[f][0])
+                a = math.sqrt((end[0] - start[0]) ** 2 + (end[1] - start[1]) ** 2)
+                b = math.sqrt((far[0] - start[0]) ** 2 + (far[1] - start[1]) ** 2)
+                c = math.sqrt((end[0] - far[0]) ** 2 + (end[1] - far[1]) ** 2)
+                angle = math.acos((b ** 2 + c ** 2 - a ** 2) / (2 * b * c))  # cosine theorem
+                if angle <= math.pi / 2:  # angle less than 90 degree, treat as fingers
+                    cnt += 1
+                    cv2.circle(drawing, far, 8, [211, 84, 0], -1)
+            return True, cnt
+    return False, 0
+
+
 # -----------------
 # MAIN FUNCTION
 # -----------------
@@ -196,7 +221,7 @@ if __name__ == "__main__":
 
                 # Find contours
                 contours, _ = cv2.findContours(
-                    thresholded, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+                    skin_mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
                 contours.sort(key=cv2.contourArea)
                 contours.reverse()
                 contours = contours[:1]
@@ -218,9 +243,13 @@ if __name__ == "__main__":
 
                     # Move mouse to center position
                     position_mouse_x = min(
-                        max((cx/width)*(screen_w + 200) - 100, 1), screen_w-1)
+                        max((cx/width)*(screen_w + 200) - 100, 1),
+                        screen_w - 1
+                    )
                     position_mouse_y = min(
-                        max((cy/height)*(screen_h + 200) - 100, 1), screen_h-1)
+                        max((cy/height)*(screen_h + 200) - 100, 1),
+                        screen_h - 1
+                    )
                     pyautogui.moveTo(position_mouse_x, position_mouse_y)
 
                     cv2.circle(clone, centr, 5, [0, 0, 255], 2)
@@ -232,14 +261,15 @@ if __name__ == "__main__":
                         contours[i], 0.01*cv2.arcLength(contours[i], True), True)
                     hull = cv2.convexHull(cnt, returnPoints=False)
                     defects = cv2.convexityDefects(cnt, hull)
+                    fingers_found, finger_cnt = calculateFingers(cnt, clone)
+                    # Click when defects number is low
+                    if (fingers_found and finger_cnt >= 3) and not clicked:
+                        pyautogui.mouseDown()
+                        clicked = True
+                    if ((not fingers_found) or finger_cnt < 3) and clicked:
+                        pyautogui.mouseUp()
+                        clicked = False
                     if defects is not None:
-                        # Click when defects number is low
-                        if defects.shape[0] >= 6 and not clicked:
-                            pyautogui.mouseDown()
-                            clicked = True
-                        if defects.shape[0] < 6 and clicked:
-                            pyautogui.mouseUp()
-                            clicked = False
                         for i in range(defects.shape[0]):
                             s, e, f, d = defects[i, 0]
                             start = tuple(cnt[s][0])
