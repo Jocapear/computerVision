@@ -6,6 +6,7 @@ import pyautogui
 
 bg = None
 screen_w, screen_h = pyautogui.size()
+clicked = False
 # --------------------------------------------------
 # To find the running average over the background
 # --------------------------------------------------
@@ -26,7 +27,7 @@ def run_avg(image, aWeight):
 # ---------------------------------------------
 
 
-def segment(image, threshold=15):
+def segment(image, threshold=25):
     global bg
     # find the absolute difference between background and current frame
     diff = cv2.absdiff(bg.astype("uint8"), image)
@@ -35,7 +36,7 @@ def segment(image, threshold=15):
     thresholded = cv2.threshold(diff, threshold, 255, cv2.THRESH_BINARY)[1]
 
     # get the contours in the thresholded image
-    (_,cnts, _) = cv2.findContours(thresholded.copy(),
+    (cnts, _) = cv2.findContours(thresholded.copy(),
                                  cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     # return None, if no contours detected
@@ -109,6 +110,7 @@ def detect_skin(image):
     return cv2.bitwise_and(image, image, mask=image_mask)
     '''
 
+
 # -----------------
 # MAIN FUNCTION
 # -----------------
@@ -118,7 +120,7 @@ if __name__ == "__main__":
 
     # get the reference to the webcam
     camera = cv2.VideoCapture(0)
-    #camera = cv2.VideoCapture('http://192.168.1.96:8080/video')
+    # camera = cv2.VideoCapture('http://192.168.1.71:8080/video')
 
     # region of interest (ROI) coordinates
     top, right, bottom, left = 0, 0, 700, 700
@@ -130,7 +132,8 @@ if __name__ == "__main__":
     # keep looping, until interrupted
     while(True):
         mouse_x, mouse_y = pyautogui.position()
-        positionStr = 'X: ' + str(mouse_x).rjust(4) + ' Y: ' + str(mouse_y).rjust(4)
+        positionStr = 'X: ' + str(mouse_x).rjust(4) + \
+            ' Y: ' + str(mouse_y).rjust(4)
         #print(positionStr, end='')
         #print('\b' * len(positionStr), end='', flush=True)
         # get the current frame
@@ -151,8 +154,8 @@ if __name__ == "__main__":
         for (ftop, fright, fbottom, fleft) in face_locations:
             frame = cv2.rectangle(
                 frame,
-                (2 * fleft, 2 * ftop),
-                (2 * fright, 2 * fbottom),
+                (int(1.8 * fleft), int(1.8 * ftop)),
+                (int(2.2 * fright), int(2.2 * fbottom)),
                 (0, 0, 0),
                 -1
             )
@@ -184,14 +187,15 @@ if __name__ == "__main__":
                 # Morphologycal operations
                 kernel = np.ones((7, 7), np.uint8)
                 thresholded = cv2.morphologyEx(
-                    thresholded,cv2.MORPH_CLOSE, kernel)
+                    thresholded, cv2.MORPH_CLOSE, kernel)
 
                 # Detect skin
                 skin_mask = detect_skin(clone)
-                thresholded = cv2.bitwise_and(thresholded, thresholded, mask=skin_mask)
+                thresholded = cv2.bitwise_and(
+                    thresholded, thresholded, mask=skin_mask)
 
                 # Find contours
-                _,contours, _ = cv2.findContours(
+                contours, _ = cv2.findContours(
                     thresholded, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
                 contours.sort(key=cv2.contourArea)
                 contours.reverse()
@@ -212,9 +216,11 @@ if __name__ == "__main__":
                         cy = int(moments['m01']/moments['m00'])  # cy = M01/M00
                     centr = (cx, cy)
 
-                    #Move mouse to center position
-                    position_mouse_x = min(max((cx/width)*screen_w,1), screen_w-1)
-                    position_mouse_y = min(max((cy/height)*screen_h, 1), screen_h-1)
+                    # Move mouse to center position
+                    position_mouse_x = min(
+                        max((cx/width)*(screen_w + 200) - 100, 1), screen_w-1)
+                    position_mouse_y = min(
+                        max((cy/height)*(screen_h + 200) - 100, 1), screen_h-1)
                     pyautogui.moveTo(position_mouse_x, position_mouse_y)
 
                     cv2.circle(clone, centr, 5, [0, 0, 255], 2)
@@ -227,9 +233,13 @@ if __name__ == "__main__":
                     hull = cv2.convexHull(cnt, returnPoints=False)
                     defects = cv2.convexityDefects(cnt, hull)
                     if defects is not None:
-                        #Click when defects number is low
-                        if defects.shape[0] < 4:
-                            pyautogui.click()
+                        # Click when defects number is low
+                        if defects.shape[0] >= 6 and not clicked:
+                            pyautogui.mouseDown()
+                            clicked = True
+                        if defects.shape[0] < 6 and clicked:
+                            pyautogui.mouseUp()
+                            clicked = False
                         for i in range(defects.shape[0]):
                             s, e, f, d = defects[i, 0]
                             start = tuple(cnt[s][0])
