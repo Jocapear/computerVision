@@ -28,7 +28,7 @@ def run_avg(image, aWeight):
 # ---------------------------------------------
 
 
-def segment(image, threshold=25):
+def segment(image, threshold=100):
     global bg
     # find the absolute difference between background and current frame
     diff = cv2.absdiff(bg.astype("uint8"), image)
@@ -145,7 +145,7 @@ if __name__ == "__main__":
 
     # get the reference to the webcam
     camera = cv2.VideoCapture(0)
-    # camera = cv2.VideoCapture('http://192.168.1.71:8080/video')
+    # camera = cv2.VideoCapture('http://10.43.34.208:8080/video')
 
     # region of interest (ROI) coordinates
     top, right, bottom, left = 0, 0, 700, 700
@@ -179,8 +179,8 @@ if __name__ == "__main__":
         for (ftop, fright, fbottom, fleft) in face_locations:
             frame = cv2.rectangle(
                 frame,
-                (int(1.8 * fleft), int(1.8 * ftop)),
-                (int(2.2 * fright), int(2.2 * fbottom)),
+                (int(1.8 * fleft), int(1.6 * ftop)),
+                (int(2.2 * fright), int(2.4 * fbottom)),
                 (0, 0, 0),
                 -1
             )
@@ -216,6 +216,8 @@ if __name__ == "__main__":
 
                 # Detect skin
                 skin_mask = detect_skin(clone)
+                skin_mask = cv2.morphologyEx(
+                    skin_mask, cv2.MORPH_CLOSE, kernel)
                 thresholded = cv2.bitwise_and(
                     thresholded, thresholded, mask=skin_mask)
 
@@ -243,13 +245,14 @@ if __name__ == "__main__":
 
                     # Move mouse to center position
                     position_mouse_x = min(
-                        max((cx/width)*(screen_w + 200) - 100, 1),
-                        screen_w - 1
+                        max((cx/width)*(screen_w + 200) - 100, 2),
+                        screen_w - 2
                     )
                     position_mouse_y = min(
-                        max((cy/height)*(screen_h + 200) - 100, 1),
-                        screen_h - 1
+                        max((cy/height)*(screen_h + 200) - 100, 2),
+                        screen_h - 2
                     )
+                    # print(position_mouse_x, position_mouse_y)
                     pyautogui.moveTo(position_mouse_x, position_mouse_y)
 
                     cv2.circle(clone, centr, 5, [0, 0, 255], 2)
